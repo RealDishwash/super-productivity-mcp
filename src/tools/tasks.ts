@@ -2,6 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { SuperProductivityClient } from '../client/sp-client.js';
 
+const isoDatetimeField = z.union([z.string(), z.number(), z.null()]);
+const isoDateField = z.union([z.string(), z.null()]);
+
 export function setupTaskTools(server: McpServer, client: SuperProductivityClient) {
   // Tool: Listar tarefas
   server.tool(
@@ -31,7 +34,12 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
             timeEstimate: t.timeEstimate,
             timeSpent: t.timeSpent,
             projectId: t.projectId,
-            notes: t.notes
+            notes: t.notes,
+            startDate: t.dueDay ?? null,
+            startAt: toIsoDateTime(t.dueWithTime),
+            startAtMs: t.dueWithTime ?? null,
+            remindAt: toIsoDateTime(t.remindAt),
+            remindAtMs: t.remindAt ?? null
           }))
         };
 
@@ -62,11 +70,14 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
       notes: z.string().optional().describe('Task notes/description'),
       timeEstimate: z.number().optional().describe('Time estimate in milliseconds'),
       tagIds: z.array(z.string()).optional().describe('Array of tag IDs'),
-      parentId: z.string().optional().describe('Parent task ID for subtasks')
+      parentId: z.string().optional().describe('Parent task ID for subtasks'),
+      startAt: isoDatetimeField.optional().describe('Scheduled start as ISO datetime or Unix ms, e.g. 2026-03-26T09:00:00+11:00'),
+      startDate: isoDateField.optional().describe('Scheduled all-day start as YYYY-MM-DD'),
+      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms')
     },
     async (params) => {
       try {
-        const taskId = await client.createTask(params);
+        const taskId = await client.createTask(normalizeTaskPayload(params));
         return {
           content: [{
             type: 'text',
@@ -98,11 +109,14 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
       notes: z.string().optional(),
       timeEstimate: z.number().optional(),
       isDone: z.boolean().optional(),
-      projectId: z.string().optional()
+      projectId: z.string().optional(),
+      startAt: isoDatetimeField.optional().describe('Scheduled start as ISO datetime or Unix ms; use null to clear'),
+      startDate: isoDateField.optional().describe('Scheduled all-day start as YYYY-MM-DD; use null to clear'),
+      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms; use null to clear')
     },
     async ({ taskId, ...updates }) => {
       try {
-        await client.updateTask(taskId, updates);
+        await client.updateTask(taskId, normalizeTaskPayload(updates));
         return {
           content: [{
             type: 'text',
@@ -188,4 +202,87 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
       }
     }
   );
+}
+
+function normalizeTaskPayload<T extends Record<string, unknown>>(params: T): Record<string, unknown> {
+  const normalized: Record<string, unknown> = { ...params };
+  const hasStartAt = Object.prototype.hasOwnProperty.call(params, 'startAt');
+  const hasStartDate = Object.prototype.hasOwnProperty.call(params, 'startDate');
+  const hasRemindAt = Object.prototype.hasOwnProperty.call(params, 'remindAt');
+
+  if (hasStartAt && hasStartDate) {
+    throw new Error('Use either startAt or startDate, not both');
+  }
+
+  if (hasStartAt) {
+    normalized.dueWithTime = parseDateTimeInput(params.startAt, 'startAt');
+    normalized.dueDay = null;
+    delete normalized.startAt;
+  }
+
+  if (hasStartDate) {
+    normalized.dueDay = parseDateInput(params.startDate, 'startDate');
+    normalized.dueWithTime = null;
+    delete normalized.startDate;
+  }
+
+  if (hasRemindAt) {
+    normalized.remindAt = parseDateTimeInput(params.remindAt, 'remindAt');
+  }
+
+  delete normalized.startAt;
+  delete normalized.startDate;
+  return normalized;
+}
+
+function parseDateTimeInput(value: unknown, field: string): number | null {
+  if (value === undefined) {
+    throw new Error(`${field} must be provided`);
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${field} must be a valid Unix timestamp in milliseconds`);
+    }
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error(`${field} must be an ISO datetime string, Unix timestamp in milliseconds, or null`);
+  }
+
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`${field} must be a valid ISO datetime string or Unix timestamp in milliseconds`);
+  }
+
+  return parsed;
+}
+
+function parseDateInput(value: unknown, field: string): string | null {
+  if (value === undefined) {
+    throw new Error(`${field} must be provided`);
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${field} must be a date string in YYYY-MM-DD format or null`);
+  }
+
+  return value;
+}
+
+function toIsoDateTime(value: unknown): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return new Date(value).toISOString();
 }

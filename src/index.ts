@@ -209,13 +209,13 @@ program
         verticalLayout: 'default',
         width: 80,
         whitespaceBreak: true
-      }, function(err, data) {
+      }, function(err: Error | null, data?: string) {
         if (err) {
             console.log('Something went wrong...');
             console.dir(err);
             return;
         }
-        console.log(chalk.blue(data));
+        console.log(chalk.blue(data ?? ''));
         console.log(chalk.green(`Super Productivity MCP Server running on http://localhost:${port}/mcp`));
       });
     });
@@ -245,7 +245,7 @@ program
       console.log(chalk.blue('Projects:'));
       console.log(projects);
     } catch (error) {
-      console.error(chalk.red(error.message));
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     }
   });
 
@@ -258,7 +258,7 @@ program
       console.log(chalk.blue('Tasks:'));
       console.log(tasks);
     } catch (error) {
-      console.error(chalk.red(error.message));
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     }
   });
 
@@ -271,9 +271,8 @@ program
       console.log(chalk.blue('Tags:'));
       console.log(tags);
     } catch (error) {
-      console.error(chalk.red(error.message));
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
     }
   });
 
 program.parse(process.argv);
-
