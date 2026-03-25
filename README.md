@@ -69,10 +69,26 @@ All tools are exposed through the MCP server and can be invoked by AI assistants
 | Tool | Description |
 |------|-------------|
 | `list_tasks` | List tasks |
-| `create_task` | Create a task |
-| `update_task` | Update a task |
+| `create_task` | Create a task, including scheduled start time |
+| `update_task` | Update a task, including scheduled start time |
 | `complete_task` | Mark a task as complete |
 | `batch_update_tasks` | Batch operations on tasks |
+
+Scheduling fields supported by `create_task` and `update_task`:
+
+- `startAt`: scheduled start as ISO datetime or Unix ms
+- `startDate`: scheduled all-day start as `YYYY-MM-DD`
+- `remindAt`: reminder time as ISO datetime or Unix ms
+
+Example:
+
+```json
+{
+  "title": "Team sync",
+  "startAt": "2026-03-26T09:00:00+11:00",
+  "remindAt": "2026-03-26T08:45:00+11:00"
+}
+```
 
 ### Projects
 | Tool | Description |
