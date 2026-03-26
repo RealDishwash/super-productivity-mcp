@@ -1,12 +1,13 @@
 {
   "name": "super_produc_mcp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Socket.IO-based MCP bridge for Super Productivity",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -14,14 +15,11 @@
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",
-    "axios": "^1.13.2",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
-    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "figlet": "^1.11.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.3",
     "ws": "^8.18.3",
     "zod": "^3.23.8"
   },

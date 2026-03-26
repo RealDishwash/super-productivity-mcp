@@ -1,2 +1,0 @@
-# Please run the following command in your terminal to start the server:
-node dist/index.js start

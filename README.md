@@ -1,18 +1,13 @@
 # Super Productivity MCP
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/rochadelon/super-productivity-mcp/ci.yml?branch=main)](https://github.com/rochadelon/super-productivity-mcp/actions)
 [![npm version](https://img.shields.io/npm/v/super_produc_mcp)](https://www.npmjs.com/package/super_produc_mcp)
 [![License](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
 
-An MCP (Model Context Protocol) server to integrate Super Productivity with AI assistants.
+An MCP (Model Context Protocol) server that integrates Super Productivity with AI assistants through a Socket.IO bridge plugin.
 
 ## About
 
-This project enables AI assistants (like Claude) to manage tasks, projects, and analyze productivity directly within Super Productivity.
-
-## Architecture
-
-![Architecture](docs/architecture.png)
+This project enables AI assistants to manage tasks, projects, tags, and lightweight UI workflows directly inside Super Productivity.
 
 ## Requirements
 
@@ -38,8 +33,6 @@ npm start
 
 ### 3. Configure an MCP Client
 
-See [docs/CONFIGURACAO_SERVIDOR.md](docs/CONFIGURACAO_SERVIDOR.md) for detailed instructions.
-
 Example configuration for Claude Desktop (`claude_desktop_config.json`):
 
 ```json
@@ -47,7 +40,7 @@ Example configuration for Claude Desktop (`claude_desktop_config.json`):
   "mcpServers": {
     "super-productivity": {
       "command": "node",
-      "args": ["C:\\path\\to\\super-productivity-mcp\\dist\\index.js"]
+      "args": ["C:\\path\\to\\super-productivity-mcp\\dist\\index.js", "start"]
     }
   }
 }
@@ -104,6 +97,13 @@ Example:
 | `list_projects` | List projects |
 | `create_project` | Create a project |
 
+### Tags
+| Tool | Description |
+|------|-------------|
+| `list_tags` | List tags |
+| `create_tag` | Create a tag |
+| `update_tag` | Update a tag |
+
 ### Smart Actions
 | Tool | Description |
 |------|-------------|
@@ -111,23 +111,43 @@ Example:
 | `suggest_priorities` | Suggest priorities |
 | `create_daily_plan` | Create a daily work plan |
 
+### UI
+| Tool | Description |
+|------|-------------|
+| `show_notification` | Show a notification in Super Productivity |
+| `show_snack` | Show an in-app snack message |
+| `open_dialog` | Open a confirm or prompt dialog |
+
 ## Project Structure
 
 ```
 super-productivity-mcp/
 ├── src/
-│   ├── index.ts           # Entry point
+│   ├── index.ts                # Entry point
+│   ├── cli/
+│   │   └── create-program.ts   # CLI wiring
 │   ├── client/
-│   │   └── sp-client.ts   # HTTP client (legacy)
+│   │   ├── socket-client.ts    # Live Socket.IO bridge client
+│   │   └── super-productivity-client.ts
+│   ├── server/
+│   │   ├── create-mcp-server.ts
+│   │   ├── register-tools.ts
+│   │   └── start-server.ts
+│   ├── types/
+│   │   └── super-productivity.ts
 │   └── tools/
-│       ├── tasks.ts       # Task tools
-│       ├── projects.ts    # Project tools
+│       ├── task-mapper.ts
+│       ├── tool-response.ts
+│       ├── tasks.ts
+│       ├── projects.ts
+│       ├── tags.ts
+│       ├── ui.ts
 │       └── smart-actions.ts
 ├── mcp-bridge-plugin/
 │   ├── manifest.json      # Plugin manifest
-│   ├── plugin.js          # Plugin code
+│   ├── plugin.js          # Bundled plugin runtime
+│   ├── plugin-logic.js    # Bridge logic source
 │   └── socket.io.min.js   # Socket.IO library
-├── docs/                  # Documentation
 └── package.json
 ```
 
@@ -144,12 +164,6 @@ docker build -t super-productivity-mcp .
 docker run -p 3000:3000 super-productivity-mcp
 ```
 
-## Documentation
-
-- [User Guide](docs/GUIA_USO.md) — End-user instructions (Portuguese)
-- [Server Configuration](docs/CONFIGURACAO_SERVIDOR.md) — How to add it to MCP clients (Portuguese)
-- [Developer Docs](docs/DESENVOLVIMENTO.md) — For core contributors (Portuguese)
-
 ## Contact
 
 Connect with the author on LinkedIn: [Delon Rocha](https://www.linkedin.com/in/delonrocha/)
@@ -159,7 +173,7 @@ Connect with the author on LinkedIn: [Delon Rocha](https://www.linkedin.com/in/d
 1. Start the server: `npm start`
 2. Open Super Productivity
 3. In the browser console (F12), verify: `MCP Bridge: Connected to MCP Server`
-4. In the server terminal, verify: `Plugin Super Productivity connected`
+4. In the server terminal, verify: `Super Productivity plugin connected:`
 
 ## License
 
