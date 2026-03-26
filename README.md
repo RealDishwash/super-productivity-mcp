@@ -69,8 +69,8 @@ All tools are exposed through the MCP server and can be invoked by AI assistants
 | Tool | Description |
 |------|-------------|
 | `list_tasks` | List tasks |
-| `create_task` | Create a task, including scheduled start time |
-| `update_task` | Update a task, including scheduled start time |
+| `create_task` | Create a task, including scheduling and deadlines |
+| `update_task` | Update a task, including scheduling and deadlines |
 | `complete_task` | Mark a task as complete |
 | `batch_update_tasks` | Batch operations on tasks |
 
@@ -80,13 +80,21 @@ Scheduling fields supported by `create_task` and `update_task`:
 - `startDate`: scheduled all-day start as `YYYY-MM-DD`
 - `remindAt`: reminder time as ISO datetime or Unix ms
 
+Deadline fields supported by `create_task` and `update_task`:
+
+- `deadlineAt`: deadline with time as ISO datetime or Unix ms
+- `deadlineDate`: all-day deadline as `YYYY-MM-DD`
+- `deadlineRemindAt`: deadline reminder time as ISO datetime or Unix ms
+
 Example:
 
 ```json
 {
-  "title": "Team sync",
+  "title": "Pay SSAF fee",
   "startAt": "2026-03-26T09:00:00+11:00",
-  "remindAt": "2026-03-26T08:45:00+11:00"
+  "remindAt": "2026-03-26T08:45:00+11:00",
+  "deadlineDate": "2026-04-02",
+  "deadlineRemindAt": "2026-04-01T18:00:00+11:00"
 }
 ```
 

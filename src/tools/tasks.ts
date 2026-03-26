@@ -39,7 +39,12 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
             startAt: toIsoDateTime(t.dueWithTime),
             startAtMs: t.dueWithTime ?? null,
             remindAt: toIsoDateTime(t.remindAt),
-            remindAtMs: t.remindAt ?? null
+            remindAtMs: t.remindAt ?? null,
+            deadlineDate: t.deadlineDay ?? null,
+            deadlineAt: toIsoDateTime(t.deadlineWithTime),
+            deadlineAtMs: t.deadlineWithTime ?? null,
+            deadlineRemindAt: toIsoDateTime(t.deadlineRemindAt),
+            deadlineRemindAtMs: t.deadlineRemindAt ?? null
           }))
         };
 
@@ -73,7 +78,10 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
       parentId: z.string().optional().describe('Parent task ID for subtasks'),
       startAt: isoDatetimeField.optional().describe('Scheduled start as ISO datetime or Unix ms, e.g. 2026-03-26T09:00:00+11:00'),
       startDate: isoDateField.optional().describe('Scheduled all-day start as YYYY-MM-DD'),
-      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms')
+      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms'),
+      deadlineAt: isoDatetimeField.optional().describe('Deadline with time as ISO datetime or Unix ms'),
+      deadlineDate: isoDateField.optional().describe('Deadline date as YYYY-MM-DD'),
+      deadlineRemindAt: isoDatetimeField.optional().describe('Deadline reminder time as ISO datetime or Unix ms')
     },
     async (params) => {
       try {
@@ -112,7 +120,10 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
       projectId: z.string().optional(),
       startAt: isoDatetimeField.optional().describe('Scheduled start as ISO datetime or Unix ms; use null to clear'),
       startDate: isoDateField.optional().describe('Scheduled all-day start as YYYY-MM-DD; use null to clear'),
-      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms; use null to clear')
+      remindAt: isoDatetimeField.optional().describe('Reminder time as ISO datetime or Unix ms; use null to clear'),
+      deadlineAt: isoDatetimeField.optional().describe('Deadline with time as ISO datetime or Unix ms; use null to clear'),
+      deadlineDate: isoDateField.optional().describe('Deadline date as YYYY-MM-DD; use null to clear'),
+      deadlineRemindAt: isoDatetimeField.optional().describe('Deadline reminder time as ISO datetime or Unix ms; use null to clear')
     },
     async ({ taskId, ...updates }) => {
       try {
@@ -209,9 +220,16 @@ function normalizeTaskPayload<T extends Record<string, unknown>>(params: T): Rec
   const hasStartAt = Object.prototype.hasOwnProperty.call(params, 'startAt');
   const hasStartDate = Object.prototype.hasOwnProperty.call(params, 'startDate');
   const hasRemindAt = Object.prototype.hasOwnProperty.call(params, 'remindAt');
+  const hasDeadlineAt = Object.prototype.hasOwnProperty.call(params, 'deadlineAt');
+  const hasDeadlineDate = Object.prototype.hasOwnProperty.call(params, 'deadlineDate');
+  const hasDeadlineRemindAt = Object.prototype.hasOwnProperty.call(params, 'deadlineRemindAt');
 
   if (hasStartAt && hasStartDate) {
     throw new Error('Use either startAt or startDate, not both');
+  }
+
+  if (hasDeadlineAt && hasDeadlineDate) {
+    throw new Error('Use either deadlineAt or deadlineDate, not both');
   }
 
   if (hasStartAt) {
@@ -230,8 +248,26 @@ function normalizeTaskPayload<T extends Record<string, unknown>>(params: T): Rec
     normalized.remindAt = parseDateTimeInput(params.remindAt, 'remindAt');
   }
 
+  if (hasDeadlineAt) {
+    normalized.deadlineWithTime = parseDateTimeInput(params.deadlineAt, 'deadlineAt');
+    normalized.deadlineDay = null;
+    delete normalized.deadlineAt;
+  }
+
+  if (hasDeadlineDate) {
+    normalized.deadlineDay = parseDateInput(params.deadlineDate, 'deadlineDate');
+    normalized.deadlineWithTime = null;
+    delete normalized.deadlineDate;
+  }
+
+  if (hasDeadlineRemindAt) {
+    normalized.deadlineRemindAt = parseDateTimeInput(params.deadlineRemindAt, 'deadlineRemindAt');
+  }
+
   delete normalized.startAt;
   delete normalized.startDate;
+  delete normalized.deadlineAt;
+  delete normalized.deadlineDate;
   return normalized;
 }
 

@@ -94,10 +94,10 @@ export function setupSmartActions(
         const scoredTasks = pendingTasks.map((task) => {
           let score = 0;
 
-          // Tarefas com deadline próximo (se tiver campo de data)
-          if (task.dueDate) {
+          const deadlineTs = getDeadlineTimestamp(task);
+          if (deadlineTs !== null) {
             const daysUntilDue =
-              (task.dueDate - Date.now()) / (1000 * 60 * 60 * 24);
+              (deadlineTs - Date.now()) / (1000 * 60 * 60 * 24);
             if (daysUntilDue < 1) score += 50;
             else if (daysUntilDue < 3) score += 30;
             else if (daysUntilDue < 7) score += 10;
@@ -276,8 +276,9 @@ function generateInsights(
 function explainPriority(task: any, score: number): string[] {
   const reasons = [];
 
-  if (task.dueDate) {
-    const daysUntilDue = (task.dueDate - Date.now()) / (1000 * 60 * 60 * 24);
+  const deadlineTs = getDeadlineTimestamp(task);
+  if (deadlineTs !== null) {
+    const daysUntilDue = (deadlineTs - Date.now()) / (1000 * 60 * 60 * 24);
     if (daysUntilDue < 1) reasons.push("Deadline urgente (< 24h)");
     else if (daysUntilDue < 3) reasons.push("Deadline próximo (< 3 dias)");
   }
@@ -292,4 +293,23 @@ function explainPriority(task: any, score: number): string[] {
   if (ageInDays > 14) reasons.push("Tarefa antiga (> 2 semanas)");
 
   return reasons;
+}
+
+function getDeadlineTimestamp(task: any): number | null {
+  if (typeof task.deadlineWithTime === "number" && Number.isFinite(task.deadlineWithTime)) {
+    return task.deadlineWithTime;
+  }
+
+  if (typeof task.deadlineDay === "string") {
+    const parsed = Date.parse(`${task.deadlineDay}T23:59:59.999`);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  if (typeof task.dueDate === "number" && Number.isFinite(task.dueDate)) {
+    return task.dueDate;
+  }
+
+  return null;
 }
