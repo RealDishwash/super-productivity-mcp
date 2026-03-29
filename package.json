@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "Socket.IO-based MCP bridge for Super Productivity",
   "main": "dist/index.js",
+  "packageManager": "bun@1.3.11",
   "scripts": {
-    "build": "npm run build:server && npm run build:plugin",
+    "build": "bun run build:server && bun run build:plugin",
     "build:server": "tsc",
-    "build:plugin": "node scripts/build-plugin.mjs",
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
+    "build:plugin": "bun scripts/build-plugin.mjs",
+    "start": "bun dist/index.js",
+    "dev": "bun --watch src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -29,7 +30,6 @@
     "@types/express": "^5.0.5",
     "@types/node": "^20.14.9",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.16.2",
     "typescript": "^5.5.3"
   }
 }

@@ -38,3 +38,6 @@ yarn-error.log*
 *.tar.gz
 *.tar
 *.rar
+
+# Generated plugin bundle
+mcp-bridge-plugin/plugin.js

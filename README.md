@@ -1,6 +1,5 @@
 # Super Productivity MCP
 
-[![npm version](https://img.shields.io/npm/v/super_produc_mcp)](https://www.npmjs.com/package/super_produc_mcp)
 [![License](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
 
 An MCP (Model Context Protocol) server that integrates Super Productivity with AI assistants through a Socket.IO bridge plugin.
@@ -11,7 +10,7 @@ This project enables AI assistants to manage tasks, projects, tags, and lightwei
 
 ## Requirements
 
-- Node.js 18+
+- Bun 1.3+
 - Super Productivity v14.0.0+
 
 ## Quick Start
@@ -20,29 +19,38 @@ This project enables AI assistants to manage tasks, projects, tags, and lightwei
 
 ```bash
 cd super-productivity-mcp
-npm install
-npm run build
-npm start
+bun install
+bun run build
+bun run start
 ```
 
-### 2. Super Productivity Plugin
+### 2. Build and Install the Super Productivity Plugin
+
+First generate the plugin bundle:
+
+```bash
+bun run build:plugin
+```
 
 1. Open Super Productivity > Settings > Plugins
-2. Install the `mcp-bridge-plugin.zip` file
-3. Restart the app
+2. Create a zip from the contents of `mcp-bridge-plugin/`
+3. Install that zip file
+4. Restart the app
 
-The plugin bundle in `mcp-bridge-plugin/plugin.js` is generated from `mcp-bridge-plugin/socket.io.min.js` and `mcp-bridge-plugin/plugin-logic.js`.
+The generated plugin bundle at `mcp-bridge-plugin/plugin.js` is built from `mcp-bridge-plugin/socket.io.min.js` and `mcp-bridge-plugin/plugin-logic.js` and is not tracked in git.
 
-### 3. Configure an MCP Client
+### 3. Configure OpenCode
 
-Example configuration for Claude Desktop (`claude_desktop_config.json`):
+Example configuration for `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "mcpServers": {
+  "mcp": {
     "super-productivity": {
-      "command": "node",
-      "args": ["C:\\path\\to\\super-productivity-mcp\\dist\\index.js", "start"]
+      "type": "remote",
+      "url": "http://127.0.0.1:3000/mcp",
+      "enabled": true,
+      "timeout": 10000
     }
   }
 }
@@ -147,7 +155,6 @@ super-productivity-mcp/
 │       └── smart-actions.ts
 ├── mcp-bridge-plugin/
 │   ├── manifest.json      # Plugin manifest
-│   ├── plugin.js          # Generated plugin bundle
 │   ├── plugin-logic.js    # Plugin bridge source
 │   └── socket.io.min.js   # Socket.IO library
 └── package.json
@@ -156,17 +163,10 @@ super-productivity-mcp/
 ## Development
 
 ```bash
-npm run dev
+bun run dev
 ```
 
-`npm run build` also regenerates `mcp-bridge-plugin/plugin.js`.
-
-## Docker
-
-```bash
-docker build -t super-productivity-mcp .
-docker run -p 3000:3000 super-productivity-mcp
-```
+`bun run build` also regenerates the local `mcp-bridge-plugin/plugin.js` bundle.
 
 ## Contact
 
@@ -174,10 +174,10 @@ Connect with the author on LinkedIn: [Delon Rocha](https://www.linkedin.com/in/d
 
 ## Verify the Installation
 
-1. Start the server: `npm start`
+1. Start the server: `bun run start`
 2. Open Super Productivity
-3. In the browser console (F12), verify: `MCP Bridge: Connected to MCP Server`
-4. In the server terminal, verify: `Super Productivity plugin connected:`
+3. In the browser console (F12), verify a successful MCP Bridge connection message
+4. In the server terminal, verify the plugin connection message appears
 
 ## License
 
