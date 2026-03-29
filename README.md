@@ -10,12 +10,23 @@ This project enables AI assistants to manage tasks, projects, tags, and lightwei
 
 ## Requirements
 
+- Docker (recommended)
 - Bun 1.3+
 - Super Productivity v14.0.0+
 
 ## Quick Start
 
 ### 1. Run the MCP Server
+
+Recommended with Docker:
+
+```bash
+cd super-productivity-mcp
+docker build -t super-productivity-mcp .
+docker run --rm -p 3000:3000 --name super-productivity-mcp super-productivity-mcp
+```
+
+Or run it directly with Bun:
 
 ```bash
 cd super-productivity-mcp
@@ -174,7 +185,7 @@ Connect with the author on LinkedIn: [Delon Rocha](https://www.linkedin.com/in/d
 
 ## Verify the Installation
 
-1. Start the server: `bun run start`
+1. Start the server with Docker or `bun run start`
 2. Open Super Productivity
 3. In the browser console (F12), verify a successful MCP Bridge connection message
 4. In the server terminal, verify the plugin connection message appears

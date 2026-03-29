@@ -8,8 +8,10 @@
     "build": "bun run build:server && bun run build:plugin",
     "build:server": "tsc",
     "build:plugin": "bun scripts/build-plugin.mjs",
-    "start": "bun dist/index.js",
-    "dev": "bun --watch src/index.ts",
+    "docker:build": "docker build -t super-productivity-mcp .",
+    "docker:run": "docker run --rm -p 3000:3000 --name super-productivity-mcp super-productivity-mcp",
+    "start": "bun dist/index.js start",
+    "dev": "bun --watch src/index.ts start",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
