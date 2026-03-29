@@ -1,5 +1,6 @@
 # Super Productivity MCP
 
+[![Docker Image](https://img.shields.io/badge/ghcr.io-super--productivity--mcp-blue?logo=docker)](https://ghcr.io/realdishwash/super-productivity-mcp)
 [![License](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
 
 An MCP (Model Context Protocol) server that integrates Super Productivity with AI assistants through a Socket.IO bridge plugin.
@@ -19,6 +20,31 @@ This project enables AI assistants to manage tasks, projects, tags, and lightwei
 ### 1. Run the MCP Server
 
 Recommended with Docker:
+
+```bash
+docker pull ghcr.io/realdishwash/super-productivity-mcp:latest
+docker run --rm -p 3000:3000 --name super-productivity-mcp ghcr.io/realdishwash/super-productivity-mcp:latest
+```
+
+Or with Docker Compose:
+
+```yaml
+services:
+  super-productivity-mcp:
+    image: ghcr.io/realdishwash/super-productivity-mcp:latest
+    container_name: super-productivity-mcp
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+Or build the image locally:
 
 ```bash
 cd super-productivity-mcp
@@ -86,6 +112,7 @@ All tools are exposed through the MCP server and can be invoked by AI assistants
 | `create_task` | Create a task, including scheduling and deadlines |
 | `update_task` | Update a task, including scheduling and deadlines |
 | `complete_task` | Mark a task as complete |
+| `delete_task` | Delete a task |
 | `batch_update_tasks` | Batch operations on tasks |
 
 Scheduling fields supported by `create_task` and `update_task`:
