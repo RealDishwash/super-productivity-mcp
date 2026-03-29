@@ -1,5 +1,0 @@
-I have modified the code to display a banner when the application starts.
-I need you to:
-1. Run the command in `run_app.txt` to start the application.
-2. Let me know if the banner is displayed correctly.
-3. Explain what you mean by "claude code" style, so I can continue with the task.

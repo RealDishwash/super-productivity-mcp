@@ -1,2 +1,0 @@
-# Please run the following commands in your terminal:
-npm install figlet @types/figlet chalk

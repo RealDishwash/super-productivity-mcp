@@ -1,35 +1,35 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { SuperProductivityClient } from "../client/sp-client.js";
+import type { SuperProductivityClient } from "../client/super-productivity-client.js";
+import type { SuperProductivityTask } from "../types/super-productivity.js";
+import { getTaskDeadlineTimestamp } from "./task-mapper.js";
+import { handleJsonTool } from "./tool-response.js";
 
-export function setupSmartActions(
-  server: McpServer,
-  client: SuperProductivityClient,
-) {
-  // Tool: Análise inteligente de produtividade
+const DEFAULT_TASK_ESTIMATE_MS = 3_600_000;
+
+export function setupSmartActions(server: McpServer, client: SuperProductivityClient): void {
   server.tool(
     "analyze_productivity",
     {
       days: z.number().default(7).describe("Number of days to analyze"),
     },
-    async ({ days }) => {
-      try {
+    async ({ days }) =>
+      handleJsonTool(async () => {
         const tasks = await client.getTasks();
         const now = Date.now();
         const startDate = now - days * 24 * 60 * 60 * 1000;
 
         const recentTasks = tasks.filter(
-          (t) => t.created >= startDate || (t.doneOn && t.doneOn >= startDate),
+          (task) => task.created >= startDate || (task.doneOn ?? 0) >= startDate,
         );
-
-        const completedTasks = recentTasks.filter((t) => t.isDone);
+        const completedTasks = recentTasks.filter((task) => task.isDone);
         const totalEstimated = recentTasks.reduce(
-          (sum, t) => sum + (t.timeEstimate || 0),
+          (sum, task) => sum + (task.timeEstimate ?? 0),
           0,
         );
-        const totalSpent = recentTasks.reduce((sum, t) => sum + t.timeSpent, 0);
+        const totalSpent = recentTasks.reduce((sum, task) => sum + task.timeSpent, 0);
 
-        const analysis = {
+        return {
           period: `${days} days`,
           totalTasks: recentTasks.length,
           completedTasks: completedTasks.length,
@@ -43,253 +43,190 @@ export function setupSmartActions(
             totalEstimated > 0
               ? `${((totalSpent / totalEstimated) * 100).toFixed(1)}%`
               : "N/A",
-          insights: generateInsights(
-            recentTasks,
-            completedTasks,
-            totalEstimated,
-            totalSpent,
-          ),
+          insights: generateInsights(recentTasks, completedTasks, totalEstimated, totalSpent),
         };
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(analysis, null, 2),
-            },
-          ],
-        };
-      } catch (error: any) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: ${error.message}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
+      }),
   );
 
-  // Tool: Sugerir priorização
   server.tool(
     "suggest_priorities",
     {
       projectId: z.string().optional(),
       maxTasks: z.number().default(5),
     },
-    async ({ projectId, maxTasks }) => {
-      try {
+    async ({ projectId, maxTasks }) =>
+      handleJsonTool(async () => {
         let tasks = await client.getCurrentContextTasks();
         if (projectId) {
-          tasks = tasks.filter((t) => t.projectId === projectId);
+          tasks = tasks.filter((task) => task.projectId === projectId);
         }
 
-        // Filtrar apenas tarefas não concluídas
-        const pendingTasks = tasks.filter((t) => !t.isDone);
-
-        // Algoritmo de priorização simples
-        const scoredTasks = pendingTasks.map((task) => {
-          let score = 0;
-
-          // Tarefas com deadline próximo (se tiver campo de data)
-          if (task.dueDate) {
-            const daysUntilDue =
-              (task.dueDate - Date.now()) / (1000 * 60 * 60 * 24);
-            if (daysUntilDue < 1) score += 50;
-            else if (daysUntilDue < 3) score += 30;
-            else if (daysUntilDue < 7) score += 10;
-          }
-
-          // Tarefas sem estimativa de tempo (precisam ser avaliadas)
-          if (!task.timeEstimate) score += 15;
-
-          // Tarefas com subtarefas incompletas
-          if (task.subTaskIds && task.subTaskIds.length > 0) score += 20;
-
-          // Tarefas mais antigas
-          const ageInDays = (Date.now() - task.created) / (1000 * 60 * 60 * 24);
-          if (ageInDays > 7) score += 10;
-          if (ageInDays > 14) score += 15;
-
-          return { task, score };
-        });
-
-        // Ordenar por score e pegar top N
-        const topTasks = scoredTasks
-          .sort((a, b) => b.score - a.score)
+        const topTasks = tasks
+          .filter((task) => !task.isDone)
+          .map((task) => ({ task, score: scoreTaskPriority(task) }))
+          .sort((left, right) => right.score - left.score)
           .slice(0, maxTasks)
           .map(({ task, score }) => ({
             id: task.id,
             title: task.title,
             priorityScore: score,
-            reasons: explainPriority(task, score),
+            reasons: explainPriority(task),
           }));
 
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  suggestions: topTasks,
-                  message: `Top ${topTasks.length} priority tasks identified`,
-                },
-                null,
-                2,
-              ),
-            },
-          ],
+          suggestions: topTasks,
+          message: `Top ${topTasks.length} priority tasks identified`,
         };
-      } catch (error: any) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: ${error.message}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
+      }),
   );
 
-  // Tool: Criar plano de trabalho diário
   server.tool(
     "create_daily_plan",
     {
       availableHours: z.number().default(8).describe("Hours available to work"),
       includeBreaks: z.boolean().default(true),
     },
-    async ({ availableHours, includeBreaks }) => {
-      try {
+    async ({ availableHours, includeBreaks }) =>
+      handleJsonTool(async () => {
         const tasks = await client.getCurrentContextTasks();
-        const pendingTasks = tasks.filter((t) => !t.isDone);
-
+        const pendingTasks = tasks.filter((task) => !task.isDone);
         const availableMinutes = availableHours * 60;
-        const breakMinutes = includeBreaks
-          ? Math.floor(availableMinutes * 0.15)
-          : 0;
+        const breakMinutes = includeBreaks ? Math.floor(availableMinutes * 0.15) : 0;
         const workMinutes = availableMinutes - breakMinutes;
 
-        // Selecionar tarefas que cabem no tempo disponível
-        const selectedTasks = [];
-        let totalTime = 0;
+        const plannedTasks: Array<{
+          id: string;
+          title: string;
+          estimatedMinutes: number;
+          order: number;
+        }> = [];
+        let totalPlannedMinutes = 0;
 
         for (const task of pendingTasks) {
-          const estimatedMinutes = (task.timeEstimate || 3600000) / (1000 * 60);
-          if (totalTime + estimatedMinutes <= workMinutes) {
-            selectedTasks.push({
-              id: task.id,
-              title: task.title,
-              estimatedMinutes: Math.round(estimatedMinutes),
-              order: selectedTasks.length + 1,
-            });
-            totalTime += estimatedMinutes;
+          const estimatedMinutes = Math.round(
+            (task.timeEstimate ?? DEFAULT_TASK_ESTIMATE_MS) / (1000 * 60),
+          );
+
+          if (totalPlannedMinutes + estimatedMinutes > workMinutes) {
+            continue;
           }
+
+          plannedTasks.push({
+            id: task.id,
+            title: task.title,
+            estimatedMinutes,
+            order: plannedTasks.length + 1,
+          });
+          totalPlannedMinutes += estimatedMinutes;
         }
 
-        const plan = {
+        return {
           date: new Date().toISOString().split("T")[0],
           totalAvailableTime: `${availableHours} hours`,
           workTime: `${Math.round(workMinutes / 60)} hours`,
-          breakTime: includeBreaks
-            ? `${Math.round(breakMinutes / 60)} hours`
-            : "None",
-          plannedTasks: selectedTasks,
-          totalPlannedTime: `${Math.round(totalTime / 60)} hours ${Math.round(totalTime % 60)} minutes`,
-          utilizationRate: `${((totalTime / workMinutes) * 100).toFixed(1)}%`,
+          breakTime: includeBreaks ? `${Math.round(breakMinutes / 60)} hours` : "None",
+          plannedTasks,
+          totalPlannedTime: `${Math.floor(totalPlannedMinutes / 60)} hours ${totalPlannedMinutes % 60} minutes`,
+          utilizationRate: `${((totalPlannedMinutes / workMinutes) * 100).toFixed(1)}%`,
         };
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(plan, null, 2),
-            },
-          ],
-        };
-      } catch (error: any) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: ${error.message}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
+      }),
   );
 }
 
 function generateInsights(
-  recentTasks: any[],
-  completedTasks: any[],
+  recentTasks: SuperProductivityTask[],
+  completedTasks: SuperProductivityTask[],
   totalEstimated: number,
   totalSpent: number,
 ): string[] {
-  const insights = [];
-  const completionRate = recentTasks.length
-    ? completedTasks.length / recentTasks.length
-    : 0;
+  const insights: string[] = [];
+  const completionRate = recentTasks.length > 0 ? completedTasks.length / recentTasks.length : 0;
 
   if (completionRate > 0.8) {
-    insights.push(
-      "Excelente taxa de conclusão! Você está mantendo um ótimo ritmo.",
-    );
+    insights.push("Excellent completion rate. You are maintaining a strong pace.");
   } else if (completionRate < 0.4) {
-    insights.push(
-      "Taxa de conclusão baixa. Considere revisar suas estimativas ou reduzir o número de tarefas.",
-    );
+    insights.push("Completion rate is low. Consider reducing task load or tightening estimates.");
   }
 
   if (totalEstimated > 0) {
     const accuracy = totalSpent / totalEstimated;
     if (accuracy > 1.2) {
-      insights.push(
-        "Você está subestimando o tempo necessário. Considere adicionar buffers às estimativas.",
-      );
+      insights.push("You are underestimating work. Add more buffer to future estimates.");
     } else if (accuracy < 0.8) {
-      insights.push(
-        "Você está superestimando o tempo. Suas tarefas estão sendo concluídas mais rápido que o esperado.",
-      );
+      insights.push("You are overestimating work. Tasks are finishing faster than expected.");
     }
   }
 
-  const tasksWithoutEstimate = recentTasks.filter(
-    (t) => !t.timeEstimate,
-  ).length;
+  const tasksWithoutEstimate = recentTasks.filter((task) => !task.timeEstimate).length;
   if (tasksWithoutEstimate > recentTasks.length * 0.3) {
     insights.push(
-      `${tasksWithoutEstimate} tarefas sem estimativa de tempo. Adicionar estimativas ajuda no planejamento.`,
+      `${tasksWithoutEstimate} tasks are still missing estimates. Adding them will improve planning.`,
     );
   }
 
   return insights;
 }
 
-function explainPriority(task: any, score: number): string[] {
-  const reasons = [];
+function scoreTaskPriority(task: SuperProductivityTask): number {
+  let score = 0;
+  const deadlineTimestamp = getTaskDeadlineTimestamp(task);
 
-  if (task.dueDate) {
-    const daysUntilDue = (task.dueDate - Date.now()) / (1000 * 60 * 60 * 24);
-    if (daysUntilDue < 1) reasons.push("Deadline urgente (< 24h)");
-    else if (daysUntilDue < 3) reasons.push("Deadline próximo (< 3 dias)");
+  if (deadlineTimestamp !== null) {
+    const daysUntilDue = (deadlineTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
+    if (daysUntilDue < 1) {
+      score += 50;
+    } else if (daysUntilDue < 3) {
+      score += 30;
+    } else if (daysUntilDue < 7) {
+      score += 10;
+    }
   }
 
-  if (!task.timeEstimate) reasons.push("Sem estimativa de tempo");
+  if (!task.timeEstimate) {
+    score += 15;
+  }
 
-  if (task.subTaskIds && task.subTaskIds.length > 0) {
-    reasons.push(`Possui ${task.subTaskIds.length} subtarefas`);
+  if ((task.subTaskIds?.length ?? 0) > 0) {
+    score += 20;
   }
 
   const ageInDays = (Date.now() - task.created) / (1000 * 60 * 60 * 24);
-  if (ageInDays > 14) reasons.push("Tarefa antiga (> 2 semanas)");
+  if (ageInDays > 7) {
+    score += 10;
+  }
+  if (ageInDays > 14) {
+    score += 15;
+  }
+
+  return score;
+}
+
+function explainPriority(task: SuperProductivityTask): string[] {
+  const reasons: string[] = [];
+  const deadlineTimestamp = getTaskDeadlineTimestamp(task);
+
+  if (deadlineTimestamp !== null) {
+    const daysUntilDue = (deadlineTimestamp - Date.now()) / (1000 * 60 * 60 * 24);
+    if (daysUntilDue < 1) {
+      reasons.push("Deadline urgent (< 24h)");
+    } else if (daysUntilDue < 3) {
+      reasons.push("Deadline soon (< 3 days)");
+    }
+  }
+
+  if (!task.timeEstimate) {
+    reasons.push("Missing time estimate");
+  }
+
+  const subtaskCount = task.subTaskIds?.length ?? 0;
+  if (subtaskCount > 0) {
+    reasons.push(`Has ${subtaskCount} subtasks`);
+  }
+
+  const ageInDays = (Date.now() - task.created) / (1000 * 60 * 60 * 24);
+  if (ageInDays > 14) {
+    reasons.push("Old task (> 2 weeks)");
+  }
 
   return reasons;
 }
