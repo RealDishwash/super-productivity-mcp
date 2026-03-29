@@ -31,6 +31,8 @@ npm start
 2. Install the `mcp-bridge-plugin.zip` file
 3. Restart the app
 
+The plugin bundle in `mcp-bridge-plugin/plugin.js` is generated from `mcp-bridge-plugin/socket.io.min.js` and `mcp-bridge-plugin/plugin-logic.js`.
+
 ### 3. Configure an MCP Client
 
 Example configuration for Claude Desktop (`claude_desktop_config.json`):
@@ -145,8 +147,8 @@ super-productivity-mcp/
 │       └── smart-actions.ts
 ├── mcp-bridge-plugin/
 │   ├── manifest.json      # Plugin manifest
-│   ├── plugin.js          # Bundled plugin runtime
-│   ├── plugin-logic.js    # Bridge logic source
+│   ├── plugin.js          # Generated plugin bundle
+│   ├── plugin-logic.js    # Plugin bridge source
 │   └── socket.io.min.js   # Socket.IO library
 └── package.json
 ```
@@ -156,6 +158,8 @@ super-productivity-mcp/
 ```bash
 npm run dev
 ```
+
+`npm run build` also regenerates `mcp-bridge-plugin/plugin.js`.
 
 ## Docker
 

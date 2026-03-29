@@ -19,13 +19,7 @@
     "projects:read",
     "projects:write",
     "tags:read",
-    "tags:write",
-    "nodeExecution"
+    "tags:write"
   ],
-  "nodeScriptConfig": {
-    "allowedPaths": ["./server"],
-    "timeout": 30000,
-    "memoryLimit": "256MB"
-  },
   "sidePanel": false
 }

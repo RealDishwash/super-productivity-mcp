@@ -4,7 +4,9 @@
   "description": "Socket.IO-based MCP bridge for Super Productivity",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:server && npm run build:plugin",
+    "build:server": "tsc",
+    "build:plugin": "node scripts/build-plugin.mjs",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit"
