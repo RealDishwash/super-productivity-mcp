@@ -108,12 +108,20 @@ All tools are exposed through the MCP server and can be invoked by AI assistants
 ### Tasks
 | Tool | Description |
 |------|-------------|
+| `get_task` | Get a single task by ID |
 | `list_tasks` | List tasks |
+| `search_tasks` | Search tasks by text and common filters |
 | `create_task` | Create a task, including scheduling and deadlines |
 | `update_task` | Update a task, including scheduling and deadlines |
 | `complete_task` | Mark a task as complete |
 | `delete_task` | Delete a task |
 | `batch_update_tasks` | Batch operations on tasks |
+
+Task lookup guidance:
+
+- Use `get_task` when you already know the exact task ID and want one task.
+- Use `list_tasks` when you want a broad task listing, optionally scoped by project or current context.
+- Use `search_tasks` when you need discovery across tasks by text, status, deadline, estimate, or tag filters.
 
 Scheduling fields supported by `create_task` and `update_task`:
 
@@ -136,6 +144,28 @@ Example:
   "remindAt": "2026-03-26T08:45:00+11:00",
   "deadlineDate": "2026-04-02",
   "deadlineRemindAt": "2026-04-01T18:00:00+11:00"
+}
+```
+
+Example `search_tasks` input:
+
+```json
+{
+  "query": "invoice",
+  "projectId": "project-123",
+  "isDone": false,
+  "overdue": true,
+  "hasDeadline": true,
+  "hasEstimate": false,
+  "limit": 10
+}
+```
+
+Example `get_task` input:
+
+```json
+{
+  "taskId": "task-123"
 }
 ```
 

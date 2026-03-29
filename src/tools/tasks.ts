@@ -1,8 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuperProductivityClient } from "../client/super-productivity-client.js";
-import type { TaskBatchOperation } from "../types/super-productivity.js";
+import type {
+  SuperProductivityProject,
+  SuperProductivityTask,
+  TaskBatchOperation,
+} from "../types/super-productivity.js";
 import {
+  getTaskDeadlineTimestamp,
   isoDateField,
   isoDatetimeField,
   normalizeTaskPayload,
@@ -20,6 +25,26 @@ const batchOperationSchema = z.object({
 });
 
 export function setupTaskTools(server: McpServer, client: SuperProductivityClient): void {
+  server.tool(
+    "get_task",
+    {
+      taskId: z.string().describe("Task ID to look up"),
+    },
+    async ({ taskId }) =>
+      handleJsonTool(async () => {
+        const tasks = await client.getTasks();
+        const task = tasks.find((candidate) => candidate.id === taskId);
+
+        if (!task) {
+          throw new Error(`Task not found: ${taskId}`);
+        }
+
+        return {
+          task: serializeTask(task),
+        };
+      }),
+  );
+
   server.tool(
     "list_tasks",
     {
@@ -51,6 +76,95 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
 
         return {
           count: filteredTasks.length,
+          tasks: filteredTasks.map(serializeTask),
+        };
+      }),
+  );
+
+  server.tool(
+    "search_tasks",
+    {
+      query: z.string().optional().describe("Case-insensitive text search across title and notes"),
+      projectId: z.string().optional().describe("Filter by project ID"),
+      tagId: z.string().optional().describe("Filter by tag ID"),
+      isDone: z.boolean().optional().describe("Filter by completion status"),
+      overdue: z.boolean().optional().describe("Filter overdue tasks"),
+      hasDeadline: z.boolean().optional().describe("Filter tasks that have a deadline"),
+      hasEstimate: z.boolean().optional().describe("Filter tasks that have a time estimate"),
+      includeArchived: z.boolean().default(false),
+      currentContextOnly: z.boolean().default(false),
+      limit: z.number().int().positive().max(200).optional().describe("Maximum number of results"),
+    },
+    async (filters) =>
+      handleJsonTool(async () => {
+        const tasks = filters.currentContextOnly
+          ? await client.getCurrentContextTasks()
+          : await client.getTasks();
+
+        const archivedProjectIds = filters.includeArchived
+          ? new Set<string>()
+          : await getArchivedProjectIds(client);
+
+        const normalizedQuery = filters.query?.trim().toLowerCase();
+        const now = Date.now();
+
+        const filteredTasks = tasks
+          .filter((task) => {
+            if (!filters.includeArchived && task.projectId && archivedProjectIds.has(task.projectId)) {
+              return false;
+            }
+
+            if (filters.projectId && task.projectId !== filters.projectId) {
+              return false;
+            }
+
+            if (typeof filters.isDone === "boolean" && task.isDone !== filters.isDone) {
+              return false;
+            }
+
+            if (typeof filters.hasEstimate === "boolean") {
+              const hasEstimate = typeof task.timeEstimate === "number" && Number.isFinite(task.timeEstimate);
+              if (hasEstimate !== filters.hasEstimate) {
+                return false;
+              }
+            }
+
+            if (typeof filters.hasDeadline === "boolean") {
+              const hasDeadline = getTaskDeadlineTimestamp(task) !== null;
+              if (hasDeadline !== filters.hasDeadline) {
+                return false;
+              }
+            }
+
+            if (typeof filters.overdue === "boolean") {
+              const deadlineTimestamp = getTaskDeadlineTimestamp(task);
+              const isOverdue = !task.isDone && deadlineTimestamp !== null && deadlineTimestamp < now;
+              if (isOverdue !== filters.overdue) {
+                return false;
+              }
+            }
+
+            if (filters.tagId && !getTaskTagIds(task).includes(filters.tagId)) {
+              return false;
+            }
+
+            if (normalizedQuery) {
+              const haystack = `${task.title} ${task.notes ?? ""}`.toLowerCase();
+              if (!haystack.includes(normalizedQuery)) {
+                return false;
+              }
+            }
+
+            return true;
+          })
+          .slice(0, filters.limit);
+
+        return {
+          count: filteredTasks.length,
+          appliedFilters: {
+            ...filters,
+            query: normalizedQuery ?? undefined,
+          },
           tasks: filteredTasks.map(serializeTask),
         };
       }),
@@ -143,6 +257,21 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
   );
 
   server.tool(
+    "delete_task",
+    {
+      taskId: z.string().describe("Task ID to delete"),
+    },
+    async ({ taskId }) =>
+      handleJsonTool(async () => {
+        await client.deleteTask(taskId);
+        return {
+          success: true,
+          message: "Task deleted successfully",
+        };
+      }),
+  );
+
+  server.tool(
     "batch_update_tasks",
     {
       projectId: z.string().describe("Project ID for batch operations"),
@@ -153,4 +282,18 @@ export function setupTaskTools(server: McpServer, client: SuperProductivityClien
         return client.batchUpdate(projectId, operations as TaskBatchOperation[]);
       }),
   );
+}
+
+async function getArchivedProjectIds(client: SuperProductivityClient): Promise<Set<string>> {
+  const projects = await client.getProjects();
+  return new Set(getArchivedProjects(projects).map((project) => project.id));
+}
+
+function getArchivedProjects(projects: SuperProductivityProject[]): SuperProductivityProject[] {
+  return projects.filter((project) => project.isArchived);
+}
+
+function getTaskTagIds(task: SuperProductivityTask): string[] {
+  const { tagIds } = task as SuperProductivityTask & { tagIds?: unknown };
+  return Array.isArray(tagIds) ? tagIds.filter((tagId): tagId is string => typeof tagId === "string") : [];
 }
