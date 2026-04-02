@@ -41,22 +41,22 @@ export function normalizeTaskPayload<T extends TaskPayloadInput>(params: T): Rec
   const hasDeadlineDate = hasOwnProperty(params, "deadlineDate");
   const hasDeadlineRemindAt = hasOwnProperty(params, "deadlineRemindAt");
 
-  if (hasStartAt && hasStartDate) {
+  if (hasNonNullProperty(params, "startAt") && hasNonNullProperty(params, "startDate")) {
     throw new Error("Use either startAt or startDate, not both");
   }
 
-  if (hasDeadlineAt && hasDeadlineDate) {
+  if (hasNonNullProperty(params, "deadlineAt") && hasNonNullProperty(params, "deadlineDate")) {
     throw new Error("Use either deadlineAt or deadlineDate, not both");
   }
 
   if (hasStartAt) {
     normalized.dueWithTime = parseDateTimeInput(params.startAt, "startAt");
-    normalized.dueDay = null;
+    delete normalized.dueDay;
   }
 
   if (hasStartDate) {
     normalized.dueDay = parseDateInput(params.startDate, "startDate");
-    normalized.dueWithTime = null;
+    delete normalized.dueWithTime;
   }
 
   if (hasRemindAt) {
@@ -65,12 +65,12 @@ export function normalizeTaskPayload<T extends TaskPayloadInput>(params: T): Rec
 
   if (hasDeadlineAt) {
     normalized.deadlineWithTime = parseDateTimeInput(params.deadlineAt, "deadlineAt");
-    normalized.deadlineDay = null;
+    delete normalized.deadlineDay;
   }
 
   if (hasDeadlineDate) {
     normalized.deadlineDay = parseDateInput(params.deadlineDate, "deadlineDate");
-    normalized.deadlineWithTime = null;
+    delete normalized.deadlineWithTime;
   }
 
   if (hasDeadlineRemindAt) {
@@ -160,4 +160,8 @@ function toIsoDateTime(value: number | undefined): string | null {
 
 function hasOwnProperty(object: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function hasNonNullProperty(object: Record<string, unknown>, key: string): boolean {
+  return hasOwnProperty(object, key) && object[key] !== null && object[key] !== undefined;
 }
