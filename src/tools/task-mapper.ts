@@ -51,12 +51,16 @@ export function normalizeTaskPayload<T extends TaskPayloadInput>(params: T): Rec
 
   if (hasStartAt) {
     normalized.dueWithTime = parseDateTimeInput(params.startAt, "startAt");
-    delete normalized.dueDay;
+    if (params.startAt !== null) {
+      delete normalized.dueDay;
+    }
   }
 
   if (hasStartDate) {
     normalized.dueDay = parseDateInput(params.startDate, "startDate");
-    delete normalized.dueWithTime;
+    if (params.startDate !== null) {
+      delete normalized.dueWithTime;
+    }
   }
 
   if (hasRemindAt) {
@@ -65,12 +69,16 @@ export function normalizeTaskPayload<T extends TaskPayloadInput>(params: T): Rec
 
   if (hasDeadlineAt) {
     normalized.deadlineWithTime = parseDateTimeInput(params.deadlineAt, "deadlineAt");
-    delete normalized.deadlineDay;
+    if (params.deadlineAt !== null) {
+      delete normalized.deadlineDay;
+    }
   }
 
   if (hasDeadlineDate) {
     normalized.deadlineDay = parseDateInput(params.deadlineDate, "deadlineDate");
-    delete normalized.deadlineWithTime;
+    if (params.deadlineDate !== null) {
+      delete normalized.deadlineWithTime;
+    }
   }
 
   if (hasDeadlineRemindAt) {
