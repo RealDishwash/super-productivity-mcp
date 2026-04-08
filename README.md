@@ -93,6 +93,57 @@ Example configuration for `~/.config/opencode/opencode.json`:
 }
 ```
 
+### 4. Run on Startup with systemd Quadlet
+
+On this machine, the MCP server is configured to start via a user-level systemd Quadlet backed by Podman.
+
+OpenCode connects to the server with:
+
+```json
+{
+  "mcp": {
+    "super-productivity": {
+      "type": "remote",
+      "url": "http://127.0.0.1:3000/mcp",
+      "enabled": true,
+      "timeout": 10000
+    }
+  }
+}
+```
+
+The user service definition lives at `~/.config/containers/systemd/super-productivity-mcp.container`:
+
+```ini
+[Unit]
+Description=Super Productivity MCP Server
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/realdishwash/super-productivity-mcp:latest
+ContainerName=super-productivity-mcp
+PublishPort=3000:3000
+Environment=PORT=3000
+Pull=newer
+AutoUpdate=registry
+
+[Service]
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+systemd generates `super-productivity-mcp.service` from that file. Because the unit is installed with `WantedBy=default.target`, it starts automatically with the user's systemd session.
+
+Notes:
+
+- This is a user service, not a system-wide boot service.
+- With `loginctl show-user "$USER" -p Linger` set to `Linger=no`, it starts when the user session starts, typically at login.
+- To verify the current status, run `systemctl --user status super-productivity-mcp.service`.
+
 ## Configuration
 
 Create a `.env` file and add:
